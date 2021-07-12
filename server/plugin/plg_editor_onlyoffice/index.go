@@ -169,6 +169,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 		oodsMode string                 // edit mode
 		oodsDevice string               // mobile, desktop of embedded
 		localip string
+		lang string
 	)
 	query := req.URL.Query()
 	path, err := ctrl.PathBuilder(ctx, query.Get("path"))
@@ -184,7 +185,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	key = HashStream(f, 20)
-	key = Hash(key + userId + path, 20)
+	key = Hash(key + path, 20)
 
 	filename = filepath.Base(path)
 	oodsMode = func() string {
@@ -236,6 +237,14 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 		}
 		return ""
 	}()
+	lang = func() string {
+		lang := req.Header.Get("Accept-Language")
+		if lang == "" {
+			return "en"
+		}
+
+		return lang[0:2]
+	}()
 	filestashServerLocation = fmt.Sprintf("http://%s:%d", localip, Config.Get("general.port").Int())
 	contentType = func(p string) string {
 		var (
@@ -259,7 +268,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 	filetype = strings.TrimPrefix(filepath.Ext(filename), ".")
 	OnlyOfficeCache.Set(key, &OnlyOfficeCacheData{ path, ctx.Backend.Save, ctx.Backend.Cat }, cache.DefaultExpiration)
 	res.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
+<html lang="%s">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -287,6 +296,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
               "editorConfig": {
                   "callbackUrl": "%s/onlyoffice/event",
                   "mode": "%s",
+                  "lang": "%s",
                   "customization": {
                       "autosave": false,
                       "forcesave": true,
@@ -308,6 +318,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
     </script>
   </body>
 </html>`,
+        lang,
 		contentType,
 		oodsDevice,
 		filename,
@@ -316,6 +327,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 		key,
 		filestashServerLocation,
 		oodsMode,
+		lang,
 		userId,
 		username,
 	)))
